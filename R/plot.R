@@ -1,18 +1,24 @@
 
 plotUnivar = function(data, col, type="histogram") {
-    plot = switch(type,
-                   histogram = hist,
-                   boxplot = boxplot
+    x = data[[col]]
+    ret = switch(type,
+                  scatter = plot(x),
+                  histogram = hist(x),
+                  boxplot = boxplot(x)
     )
-    
-    plot(data[[col]])
+
 }
 
 
-plotBivar = function(data, var1, var2, type="bvboxplot") {
-    plot = switch(type,
-                  bvboxplot = bv.boxplot
-    )
+plotBivar = function(data, var1, var2, type="bvboxplot", rmNa = TRUE) {
+    if (rmNA) {
+        data = data[!(is.na(data[[var1]]) | is.na(data[[var2]])),]
+    }
     
-    plot(data[[var1]], data[[var2]], bg = 'blue', bg.out = 'red')
+    x = data[[var1]]
+    y = data[[var2]]
+    plot = switch(type,
+                  bvboxplot = bv.boxplot(x, y, bg = 'blue', bg.out = 'red')
+    )
+
 }

@@ -2,6 +2,8 @@ library(shinydashboard)
 library(DT)
 
 source("R/selection.R")
+source("R/plot.R")
+source("R/outlier.R")
 
 
 header <- dashboardHeader(
@@ -51,13 +53,13 @@ body <- dashboardBody(
     fluidRow(
         column(width = 3,
                # File
-               box(width = NULL, status = "warning",
+               box(width = NULL, status = "primary", title = "File", collapsible = T,
                    fileInput("file", "Choose File"),
                    downloadButton('downloadData', 'Download')
                ),
                
                # Filter
-               box(width = NULL, status = "primary", title ="Filter", solidHeader = T,
+               box(width = NULL, status = "primary", title ="Filter", solidHeader = T, collapsible = T,
                    
                    uiOutput("filterList"),
                    
@@ -67,59 +69,104 @@ body <- dashboardBody(
                    actionButton("applyFilter", "Apply")
                ),
                
-               box(width = NULL, status = "primary", title ="Edit", solidHeader = T,
-                   radioButtons("editType", NULL,
+               
+               # Edit
+               box(width = NULL, status = "primary", title ="Edit", solidHeader = T, collapsible = T,
+                   radioButtons("editType", NULL, inline = TRUE,
                                 c("Row", "Column")),
                    
                    conditionalPanel( condition = "input.editType == 'Row'",
-                                     actionButton("impute", "Remove Duplicates"),
+                                     actionButton("rmDup", "Remove Duplicates"),
                                      br(),
                                      br(),
-                                     actionButton("impute", "Remove NA's")),
+                                     actionButton("rmNA", "Remove NA's")),
                    
                    conditionalPanel( condition = "input.editType == 'Column'",
-                                     selectizeInput("asd", NULL, choices = c("preco", "qts", "area"),
-                                                    options = list(
-                                                        placeholder = 'Select an option',
-                                                        onInitialize = I('function() { this.setValue(""); }')
-                                                    )
-                                     ),
+                                     uiOutput("delColSelect"),
                                      
-                                     actionButton("impute", "Delete Column")
+                                     actionButton("delCol", "Delete Column")
                    )
                    
                    
                ),
                
-               box(width = NULL, status = "primary", title ="Plot", solidHeader = T,
-                   selectizeInput("asd", "Column", choices = c("preco", "qts", "area"),
-                                  options = list(
-                                      placeholder = 'Select an option',
-                                      onInitialize = I('function() { this.setValue(""); }')
-                                  )
-                   ),
+               # Plot
+               box(width = NULL, status = "primary", title ="Plot", solidHeader = T, collapsible = T,
                    
-                   radioButtons("plotType", "Plot type",
-                                c("Scatter"="p", "Bloxplot"="bp", "Histogram" = "h")
+                   tabsetPanel(
+                       id = "plotTabset",
+                       
+                       tabPanel("Univariate", 
+                                br(),
+                                uiOutput("plotUni"),
+                                
+                                radioButtons("plotTypeUni", "Plot type",
+                                             c("Scatter"="p", "Bloxplot"="bp", "Histogram" = "h")
+                                )
+                                
+                                
+                       ),
+                       
+                       
+                       tabPanel("Bivariate",
+                                br(),
+                                uiOutput("plotBi1"),
+                                uiOutput("plotBi2"),
+                                
+                                radioButtons("plotTypeBi", "Plot type",
+                                             c("Bivariate Boxplot" = "bvboxplot",
+                                               "Bagplot" = "bagplot")
+                                )
+                                
+                                
+                                
+                                
+                       )
+                       
+                       
                    ),
+                   actionButton("plotButton", "Plot")
                    
-                   actionButton("impute", "Plot")
+                   
                ),
                
                
-               box(width = NULL, status = "primary", title ="Oulier", solidHeader = T,
-                   selectizeInput("asd", "Column", choices = c("preco", "qts", "area"),
-                                  options = list(
-                                      placeholder = 'Select an option',
-                                      onInitialize = I('function() { this.setValue(""); }')
-                                  )
-                   ),
+               
+               # Outlier
+               box(width = NULL, status = "primary", title ="Oulier", solidHeader = T, collapsible = T,
                    
-                   radioButtons("plotType", "Method",
-                                c("Bloxplot"="bp")
-                   ),
+                   tabsetPanel(
+                       id = "outlierTabset",
+                       
+                       tabPanel("Univariate", 
+                                br(),
+                                uiOutput("outlierUni"),
+                                
+                                radioButtons("outlierType", "Method",
+                                             c("Bloxplot"="bp")
+                                ),
+                                
+                                actionButton("outlierButton", "Detect")
+                       ),
+                       
+                       
+                       tabPanel("Bivariate",
+                                br(),
+                                uiOutput("outlierBi1"),
+                                uiOutput("outlierBi2"),
+                                
+                                radioButtons("outlierTypeBi", "Method",
+                                             c("Bivariate Boxplot" = "bvboxplot",
+                                               "Bagplot" = "bagplot")
+                                ),
+                                
+                                actionButton("outlierButton", "Detect")
+                                
+                       )
+                       
+                   )
                    
-                   actionButton("impute", "Detect")
+                   
                )
                
                
@@ -129,31 +176,41 @@ body <- dashboardBody(
         ),
         
         column(width = 9,
-               fluidRow(
-                   column(width = 6,
-                          box(width = NULL, solidHeader = TRUE,
-                              div(style = 'overflow-x: scroll', verbatimTextOutput('summary'))
-                          )
-                   ),
-                   column(width = 6,
-                          box(width = NULL, solidHeader = TRUE,
-                              plotOutput('plot')
-                          )
-                   )
+               
+               box(width = NULL, title = "Plot", collapsible = T,
+                   plotOutput('plotOutput')
+               ),
+               
+               box(width = NULL, solidHeader = TRUE,  collapsible = T,
+                   verbatimTextOutput('summary')
                ),
                
                
                
-               box(width = NULL, solidHeader = TRUE,
+               
+               box(width = NULL, solidHeader = TRUE,  collapsible = T,
                    div(style="display:inline-block",
                        textOutput('nr', inline = T),
                        dataTableOutput("table"), inline = T)
                    
                    
+               ),
+               
+               box(width = NULL, solidHeader = TRUE, collapsible = T,
+                   tabsetPanel(
+                       
+                       # The id lets us use input$tabset1 on the server to find the current tab
+                       id = "tabset1",
+                       tabPanel("Tab1", "Tab content 1"
+                       ),
+                       tabPanel("Tab2", "Tab content 2")
+                   )
                )
                
                
         )
+        
+        
         
     )
 )
@@ -179,6 +236,11 @@ server <- function(input, output) {
         file = read.csv(data$datapath)
         values$table = file
         values$select = values$table
+    })
+    
+    
+    info = reactive({
+        getInfo(values$select)
     })
     
     observeEvent(input$applyFilter, {
@@ -219,16 +281,13 @@ server <- function(input, output) {
     })
     
     output$summary = renderPrint({
-        if (is.null(values$select)) {
-            return()
-        }
-        
-        summary(values$select)
+        getSummary(values$select)
     })
     
     
+    # Ui Elements
     output$filterList = renderUI({
-        selectizeInput("filterInput", "Column:", choices = names(values$select), 
+        selectizeInput("filterInput", "Column:", choices = names(info()),
                        options = list(
                            placeholder = 'Select an option',
                            onInitialize = I('function() { this.setValue(""); }')
@@ -240,9 +299,90 @@ server <- function(input, output) {
         sliderInput("filterValue", "Value:", min=0, max=10, value=c(0,10))
     })
     
-    output$plot = renderPlot({
-        hist(c(1,1,1,2,2,3,3,5,5,5,5,4,4), main = "Histogram", xlab = "Data")
-        
+    output$delColSelect = renderUI({
+        selectizeInput("delColSelect", "Column:", choices = names(info()),
+                       options = list(
+                           placeholder = 'Select an option',
+                           onInitialize = I('function() { this.setValue(""); }')
+                       )
+        )
+    })
+    
+    output$plotUni = renderUI({
+        selectizeInput("plotUni", "Column:", choices = names(info()),
+                       options = list(
+                           placeholder = 'Select an option',
+                           onInitialize = I('function() { this.setValue(""); }')
+                       )
+        )
+    })
+    
+    output$plotBi1 = renderUI({
+        selectizeInput("plotBi1", "Column 1:", choices = names(info()),
+                       options = list(
+                           placeholder = 'Select an option',
+                           onInitialize = I('function() { this.setValue(""); }')
+                       )
+        )
+    })
+    
+    
+    output$plotBi2 = renderUI({
+        selectizeInput("plotBi2", "Column 2:", choices = names(info()),
+                       options = list(
+                           placeholder = 'Select an option',
+                           onInitialize = I('function() { this.setValue(""); }')
+                       )
+        )
+    })
+    
+    
+    output$outlierUni = renderUI({
+        selectizeInput("outlierUni", "Column:", choices = names(info()),
+                       options = list(
+                           placeholder = 'Select an option',
+                           onInitialize = I('function() { this.setValue(""); }')
+                       )
+        )
+    })
+    
+    output$outlierBi1 = renderUI({
+        selectizeInput("outlierBi1", "Column 1:", choices = names(info()),
+                       options = list(
+                           placeholder = 'Select an option',
+                           onInitialize = I('function() { this.setValue(""); }')
+                       )
+        )
+    })
+    
+    
+    output$outlierBi2 = renderUI({
+        selectizeInput("outlierBi2", "Column 2:", choices = names(info()),
+                       options = list(
+                           placeholder = 'Select an option',
+                           onInitialize = I('function() { this.setValue(""); }')
+                       )
+        )
+    })
+    
+    
+    
+    observeEvent(input$delCol, {
+        values$select = deleteCol(values$select, input$delColSelect)
+    })
+    
+    
+    
+    plotVal = eventReactive(input$plotButton, {
+        print(input$plotTabset)
+        plotUnivar(values$select, input$plotUni, type = input$plotTypeUni)
+
+    })
+
+
+    
+    output$plotOutput = renderPlot({
+        plotVal()
     })
     
     

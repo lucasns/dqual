@@ -1,13 +1,13 @@
-input <- read.csv("test.csv", colClasses = c(NA, NA, NA, NA, NA, NA, NA, NA, 
-                                                              "NULL", "NULL", "NULL", "NULL", NA))
+#input <- read.csv("test.csv", colClasses = c(NA, NA, NA, NA, NA, NA, NA, NA, 
+#                                                              "NULL", "NULL", "NULL", "NULL", NA))
 
-input = input[!(input$qts > 20 & !is.na(input$qts)),]
-input = input[!(input$preco > 1000000 & !is.na(input$preco)),]
-input = input[!(is.na(input$area) | is.na(input$qts) | is.na(input$vagas)),]
+#input = input[!(input$qts > 20 & !is.na(input$qts)),]
+#input = input[!(input$preco > 1000000 & !is.na(input$preco)),]
+#input = input[!(is.na(input$area) | is.na(input$qts) | is.na(input$vagas)),]
 
 
 
-univar_camp = "qts"
+#univar_camp = "qts"
 
 
 
@@ -58,6 +58,6 @@ bivarOutliers = function(input, var1, var2, type = "bvboxplot") {
 }
 
 
-a = outlierBoxplot(input, 'qts')
-b = outlierBvBoxplot(input, 'qts', 'lat')
+#a = outlierBoxplot(input, 'qts')
+#b = outlierBvBoxplot(input, 'qts', 'lat')
 
