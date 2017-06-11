@@ -35,6 +35,15 @@ getCompleteRows = function(data) {
 }
 
 
+getUnique = function(data) {
+    if (is.null(data)) {
+        return(NULL)
+    }
+    
+    return(unique(data))        
+}
+
+
 getNaSummary = function(data) {
     lapply(data, function(y) sum(is.na(y)))
 }

@@ -4,6 +4,10 @@ library(DT)
 source("R/selection.R")
 source("R/plot.R")
 source("R/outlier.R")
+source("R/imputation.R")
+
+
+options(encoding = 'UTF-8')
 
 
 header <- dashboardHeader(
@@ -11,33 +15,15 @@ header <- dashboardHeader(
 )
 
 
-sidebar <- dashboardSidebar(collapsed = T,
+sidebar <- dashboardSidebar(collapsed = T, disable = T,
                             sidebarMenu(
-                                # Setting id makes input$tabs give the tabName of currently-selected tab
-                                id = "tabs",
-                                
-                                menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard"),
-                                         fileInput("fileas", "Choose File")
+                                menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")
+                                         
                                          
                                 ),
-                                menuItem("Filter", icon = icon("th"), tabName = "widgets",
-                                         selectizeInput("asd", "Column", choices = c("preco", "qts", "area"),
-                                                        options = list(
-                                                            placeholder = 'Select an option',
-                                                            onInitialize = I('function() { this.setValue(""); }')
-                                                        )
-                                         ),
-                                         
-                                         sliderInput("integer", "Value:", 
-                                                     min=0, max=1000, value=500),
-                                         
-                                         actionButton("Apply", "Apply"),
-                                         br()
+                                menuItem("Filter", icon = icon("th"), tabName = "widgets"
                                 ),
-                                menuItem("Charts", icon = icon("bar-chart-o"), startExpanded = T,
-                                         menuSubItem("Sub-item 1", tabName = "subitem1"),
-                                         menuSubItem("Sub-item 2", tabName = "subitem2")
-                                         
+                                menuItem("Charts", icon = icon("bar-chart-o")
                                 )
                                 
                                 
@@ -45,6 +31,7 @@ sidebar <- dashboardSidebar(collapsed = T,
                                 
                                 
                             ),
+                            
                             textOutput("res")
 )
 
@@ -53,25 +40,24 @@ body <- dashboardBody(
     fluidRow(
         column(width = 3,
                # File
-               box(width = NULL, status = "primary", title = "File", collapsible = T,
+               box(width = NULL, status = "primary", title = "File", solidHeader = T, collapsible = T,
                    fileInput("file", "Choose File"),
                    downloadButton('downloadData', 'Download')
                ),
                
                # Filter
-               box(width = NULL, status = "primary", title ="Filter", solidHeader = T, collapsible = T,
+               box(width = NULL, status = "primary", title ="Filter", solidHeader = T, collapsible = T, collapsed = T,
                    
                    uiOutput("filterList"),
                    
-                   sliderInput("interval", "Value:", 
-                               min=0, max=10, value=c(0,10)),
+                   uiOutput("filterValue"),
                    
                    actionButton("applyFilter", "Apply")
                ),
                
                
                # Edit
-               box(width = NULL, status = "primary", title ="Edit", solidHeader = T, collapsible = T,
+               box(width = NULL, status = "primary", title ="Edit", solidHeader = T, collapsible = T, collapsed = T,
                    radioButtons("editType", NULL, inline = TRUE,
                                 c("Row", "Column")),
                    
@@ -91,7 +77,7 @@ body <- dashboardBody(
                ),
                
                # Plot
-               box(width = NULL, status = "primary", title ="Plot", solidHeader = T, collapsible = T,
+               box(width = NULL, status = "primary", title ="Plot", solidHeader = T, collapsible = T, collapsed = T,
                    
                    tabsetPanel(
                        id = "plotTabset",
@@ -101,7 +87,7 @@ body <- dashboardBody(
                                 uiOutput("plotUni"),
                                 
                                 radioButtons("plotTypeUni", "Plot type",
-                                             c("Scatter"="p", "Bloxplot"="bp", "Histogram" = "h")
+                                             c("Plot"="plot", "Bloxplot"="boxplot", "Histogram" = "histogram")
                                 )
                                 
                                 
@@ -115,7 +101,7 @@ body <- dashboardBody(
                                 
                                 radioButtons("plotTypeBi", "Plot type",
                                              c("Bivariate Boxplot" = "bvboxplot",
-                                               "Bagplot" = "bagplot")
+                                               "Plot"="plot")
                                 )
                                 
                                 
@@ -142,11 +128,11 @@ body <- dashboardBody(
                                 br(),
                                 uiOutput("outlierUni"),
                                 
-                                radioButtons("outlierType", "Method",
-                                             c("Bloxplot"="bp")
-                                ),
+                                radioButtons("outlierTypeUni", "Method",
+                                             c("Bloxplot"="boxplot")
+                                )
                                 
-                                actionButton("outlierButton", "Detect")
+                                
                        ),
                        
                        
@@ -158,13 +144,19 @@ body <- dashboardBody(
                                 radioButtons("outlierTypeBi", "Method",
                                              c("Bivariate Boxplot" = "bvboxplot",
                                                "Bagplot" = "bagplot")
-                                ),
-                                
-                                actionButton("outlierButton", "Detect")
+                                )
                                 
                        )
                        
+                   ),
+                   
+                   fluidRow(
+                       column(4,
+                              actionButton("outlierDetect", "Detect")),
+                       column(4,
+                              actionButton("outlierRemove", "Remove"))
                    )
+                   
                    
                    
                )
@@ -181,29 +173,25 @@ body <- dashboardBody(
                    plotOutput('plotOutput')
                ),
                
-               box(width = NULL, solidHeader = TRUE,  collapsible = T,
-                   verbatimTextOutput('summary')
-               ),
                
                
                
-               
-               box(width = NULL, solidHeader = TRUE,  collapsible = T,
-                   div(style="display:inline-block",
-                       textOutput('nr', inline = T),
-                       dataTableOutput("table"), inline = T)
-                   
-                   
-               ),
-               
-               box(width = NULL, solidHeader = TRUE, collapsible = T,
+               box(width = NULL, title = "Info", solidHeader = TRUE, collapsible = T,
                    tabsetPanel(
                        
                        # The id lets us use input$tabset1 on the server to find the current tab
-                       id = "tabset1",
-                       tabPanel("Tab1", "Tab content 1"
+                       id = "infoTabset",
+                       tabPanel("Output",
+                                verbatimTextOutput('infoOutput')
                        ),
-                       tabPanel("Tab2", "Tab content 2")
+                       tabPanel("Summary", 
+                                verbatimTextOutput('summary')
+                       ),
+                       tabPanel("Table", 
+                                textOutput('nr'),
+                                dataTableOutput("table")
+                                
+                       )
                    )
                )
                
@@ -224,7 +212,10 @@ ui <- dashboardPage(
 
 
 server <- function(input, output) {
-    values <- reactiveValues()
+    values <- reactiveValues(table = NULL,
+                             select = NULL,
+                             outliers = NULL,
+                             plot = NULL)
     
     dataFile = reactive({
         
@@ -244,10 +235,19 @@ server <- function(input, output) {
     })
     
     observeEvent(input$applyFilter, {
-        if (!is.null(values$select) & input$filterInput != ""){
-            val = input$interval
-            values$select = selectNum(values$select, input$filterInput, val[1], val[2])
-            print(values$select)
+        if (!is.null(values$select) & !is.null(input$filterList) && input$filterList != ""){
+            val = input$filterValue
+            colInfo = info()[[input$filterList]]
+            
+            if (colInfo$type == 'numeric') {
+                values$select = selectNum(values$select, input$filterList, val[1], val[2])
+            } else {
+                if (!is.null(input$filterValue)) {
+                    values$select = selectFactor(values$select, input$filterList, val)
+                } else {
+                    print("Value not determined")
+                }
+            }
         }
         
     })
@@ -287,7 +287,7 @@ server <- function(input, output) {
     
     # Ui Elements
     output$filterList = renderUI({
-        selectizeInput("filterInput", "Column:", choices = names(info()),
+        selectizeInput("filterList", "Column:", choices = names(info()),
                        options = list(
                            placeholder = 'Select an option',
                            onInitialize = I('function() { this.setValue(""); }')
@@ -296,7 +296,21 @@ server <- function(input, output) {
     })
     
     output$filterValue = renderUI({
-        sliderInput("filterValue", "Value:", min=0, max=10, value=c(0,10))
+        if (input$filterList == "") {
+            return()
+        }
+        
+        colInfo = info()[[input$filterList]]
+        if (colInfo$type == "factor") {
+            selectizeInput("filterValue", "Column:", choices = colInfo$values, multiple = T,
+                           options = list(
+                               placeholder = 'Select an option'
+                           )
+            )
+        } else {
+            sliderInput("filterValue", "Value:", colInfo$values[1], colInfo$values[2], value=c(0,10))
+        }
+        
     })
     
     output$delColSelect = renderUI({
@@ -366,24 +380,100 @@ server <- function(input, output) {
     })
     
     
+    observeEvent(input$rmDup, {
+        values$select = getUnique(values$select)
+    })
+    
+    observeEvent(input$rmNA, {
+        values$select = getCompleteRows(values$select)
+    })
+    
     
     observeEvent(input$delCol, {
-        values$select = deleteCol(values$select, input$delColSelect)
+        if (input$delColSelect != "") {
+            values$select = deleteCol(values$select, input$delColSelect)
+        } else {
+            print("Column not selected")
+        }
     })
     
     
-    
-    plotVal = eventReactive(input$plotButton, {
-        print(input$plotTabset)
-        plotUnivar(values$select, input$plotUni, type = input$plotTypeUni)
-
+    test = eventReactive(list(input$plotButton, input$outlierButton), {
+        print(paste(input$plotButton, input$outlierButton))
     })
-
-
     
+    
+    observeEvent(input$plotButton, {
+        if (input$plotTabset == "Univariate" && input$plotUni != "") {
+            output$plotOutput = renderPlot({
+                isolate(plotUnivar(values$select, input$plotUni, type = input$plotTypeUni))
+            })
+            
+        } else if (input$plotTabset == "Bivariate" && input$plotBi1 != "" && input$plotBi2 != "") {
+            output$plotOutput = renderPlot({
+                isolate(plotBivar(values$select, input$plotBi1, input$plotBi2, type = input$plotTypeBi))
+            })
+        }
+    })
+    
+
     output$plotOutput = renderPlot({
-        plotVal()
+        test()
+        if (is.null(values$table)) {
+            values$table = dataFile()
+        }
+        
     })
+    
+    
+    observeEvent(input$outlierDetect, {
+        if (input$outlierTabset == "Univariate" && input$outlierUni != "" ) {
+            output$plotOutput = renderPlot({
+                isolate(plotUnivar(values$select, input$outlierUni, type = input$outlierTypeUni))
+            })
+            
+            values$outliers = univarOutliers(values$select, input$outlierUni, input$outlierTypeUni)$outliers
+        } else if (input$outlierTabset == "Bivariate" && input$outlierBi1 != "" && input$outlierBi2 != "") {
+            output$plotOutput = renderPlot({
+                isolate(plotBivar(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi))
+            })
+            
+            values$outliers = bivarOutliers(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi)$outliers
+        } else {
+            
+        }
+        
+        print(nrow(values$outliers))
+        
+    })
+    
+    observeEvent(input$outlierRemove, {
+        if (input$outlierTabset == "Univariate" && input$outlierUni != "") {
+            outliers = univarOutliers(values$select, input$outlierUni, input$outlierTypeUni)$outliers
+            print(head(outliers,100))
+            values$select = rmOutliers(values$select, outliers)
+            
+            output$plotOutput = renderPlot({
+                isolate(plotUnivar(values$select, input$outlierUni, type = input$outlierTypeUni))
+            })
+        } else if (input$outlierTabset == "Bivariate" && input$outlierBi1 != "" && input$outlierBi2 != "") {
+            out = bivarOutliers(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi)
+            values$select = rmOutliers(values$select, out$outliers)
+            
+            output$plotOutput = renderPlot({
+                isolate(plotBivar(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi))
+            })
+            
+        } else {
+            
+        }
+        
+        print(length(values$outliers))
+        
+    })
+    
+    
+    
     
     
     

@@ -9,7 +9,6 @@ selectFactor = function(data, var, val) {
 
 
 selectNum = function(data, var, begin, end) {
-    print(paste(var, begin, end))
     data[data[[var]] >= begin & data[[var]] <= end & !is.na(data[[var]]),]
 }
 
