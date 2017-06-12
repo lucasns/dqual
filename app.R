@@ -8,6 +8,7 @@ source("R/imputation.R")
 
 
 options(encoding = 'UTF-8')
+options(shiny.maxRequestSize=1000*1024^2)
 
 
 header <- dashboardHeader(
@@ -52,12 +53,11 @@ body <- dashboardBody(
                    
                    uiOutput("filterValue"),
                    
-                   actionButton("applyFilter", "Apply")
-               ),
-               
-               
-               # Edit
-               box(width = NULL, status = "primary", title ="Edit", solidHeader = T, collapsible = T, collapsed = T,
+                   actionButton("applyFilter", "Apply"),
+                   
+                   br(),
+                   br(),
+                   
                    radioButtons("editType", NULL, inline = TRUE,
                                 c("Row", "Column")),
                    
@@ -72,22 +72,22 @@ body <- dashboardBody(
                                      
                                      actionButton("delCol", "Delete Column")
                    )
-                   
-                   
                ),
-               
+
                # Plot
-               box(width = NULL, status = "primary", title ="Plot", solidHeader = T, collapsible = T, collapsed = T,
+               box(width = NULL, status = "primary", title ="Plot", solidHeader = T, collapsible = T,
                    
                    tabsetPanel(
                        id = "plotTabset",
                        
                        tabPanel("Univariate", 
+                                
                                 br(),
                                 uiOutput("plotUni"),
+                                checkboxInput("plotLogUni", 'log'),
                                 
-                                radioButtons("plotTypeUni", "Plot type",
-                                             c("Plot"="plot", "Bloxplot"="boxplot", "Histogram" = "histogram")
+                                selectInput("plotTypeUni", "Plot type",
+                                             c("Histogram" = "histogram", "Plot"="plot", "Bloxplot"="boxplot")
                                 )
                                 
                                 
@@ -98,10 +98,12 @@ body <- dashboardBody(
                                 br(),
                                 uiOutput("plotBi1"),
                                 uiOutput("plotBi2"),
+                                checkboxGroupInput("plotLogBi", NULL, c(log = "log"), FALSE),
                                 
-                                radioButtons("plotTypeBi", "Plot type",
-                                             c("Bivariate Boxplot" = "bvboxplot",
-                                               "Plot"="plot")
+                                selectInput("plotTypeBi", "Plot type",
+                                             c("Plot"="plot",
+                                               "Bivariate Boxplot" = "bvboxplot"
+                                               )
                                 )
                                 
                                 
@@ -127,8 +129,9 @@ body <- dashboardBody(
                        tabPanel("Univariate", 
                                 br(),
                                 uiOutput("outlierUni"),
+                                checkboxInput("outLogUni", 'log'),
                                 
-                                radioButtons("outlierTypeUni", "Method",
+                                selectInput("outlierTypeUni", "Method",
                                              c("Bloxplot"="boxplot")
                                 )
                                 
@@ -140,8 +143,9 @@ body <- dashboardBody(
                                 br(),
                                 uiOutput("outlierBi1"),
                                 uiOutput("outlierBi2"),
+                                checkboxGroupInput("outLogBi", NULL, c(log = "log")),
                                 
-                                radioButtons("outlierTypeBi", "Method",
+                                selectInput("outlierTypeBi", "Method",
                                              c("Bivariate Boxplot" = "bvboxplot",
                                                "Bagplot" = "bagplot")
                                 )
@@ -150,21 +154,11 @@ body <- dashboardBody(
                        
                    ),
                    
-                   fluidRow(
-                       column(4,
-                              actionButton("outlierDetect", "Detect")),
-                       column(4,
-                              actionButton("outlierRemove", "Remove"))
-                   )
-                   
-                   
-                   
+                   actionButton("outlierDetect", "Detect"),
+                   actionButton("outlierRemove", "Remove")
+
                )
-               
-               
-               
-               
-               
+    
         ),
         
         column(width = 9,
@@ -194,12 +188,7 @@ body <- dashboardBody(
                        )
                    )
                )
-               
-               
         )
-        
-        
-        
     )
 )
 
@@ -308,7 +297,7 @@ server <- function(input, output) {
                            )
             )
         } else {
-            sliderInput("filterValue", "Value:", colInfo$values[1], colInfo$values[2], value=c(0,10))
+            sliderInput("filterValue", "Value:", colInfo$values[1], colInfo$values[2], value=c(colInfo$values[1], colInfo$values[2]))
         }
         
     })
@@ -352,7 +341,7 @@ server <- function(input, output) {
     
     
     output$outlierUni = renderUI({
-        selectizeInput("outlierUni", "Column:", choices = names(info()),
+        selectizeInput("outlierUni", "Column:", choices = names(info()), width = "90%",
                        options = list(
                            placeholder = 'Select an option',
                            onInitialize = I('function() { this.setValue(""); }')
@@ -396,29 +385,35 @@ server <- function(input, output) {
             print("Column not selected")
         }
     })
-    
-    
-    test = eventReactive(list(input$plotButton, input$outlierButton), {
-        print(paste(input$plotButton, input$outlierButton))
-    })
-    
-    
+  
+
     observeEvent(input$plotButton, {
         if (input$plotTabset == "Univariate" && input$plotUni != "") {
-            output$plotOutput = renderPlot({
-                isolate(plotUnivar(values$select, input$plotUni, type = input$plotTypeUni))
-            })
+            ct = info()[[input$plotUni]]$type
+            if (ct != "factor") {
+                output$plotOutput = renderPlot({
+                    isolate(plotUnivar(values$select, input$plotUni, log = input$plotLogUni, type = input$plotTypeUni))
+                })
+            } else {
+                print("Plot var must be numeric")
+            }
             
         } else if (input$plotTabset == "Bivariate" && input$plotBi1 != "" && input$plotBi2 != "") {
-            output$plotOutput = renderPlot({
-                isolate(plotBivar(values$select, input$plotBi1, input$plotBi2, type = input$plotTypeBi))
-            })
+            ct1 = info()[[input$plotBi1]]$type
+            ct2 = info()[[input$plotBi2]]$type
+            if (ct1 != "factor" && ct2 != "factor") {
+                output$plotOutput = renderPlot({
+                    isolate(plotBivar(values$select, input$plotBi1, input$plotBi2, input$outLogUni, type = input$plotTypeBi))
+                })
+            } else {
+                print("Plot var must be numeric")
+            }
+            
         }
     })
     
-
+    
     output$plotOutput = renderPlot({
-        test()
         if (is.null(values$table)) {
             values$table = dataFile()
         }
@@ -428,47 +423,76 @@ server <- function(input, output) {
     
     observeEvent(input$outlierDetect, {
         if (input$outlierTabset == "Univariate" && input$outlierUni != "" ) {
-            output$plotOutput = renderPlot({
-                isolate(plotUnivar(values$select, input$outlierUni, type = input$outlierTypeUni))
-            })
+            ct = info()[[input$outlierUni]]$type
+            if (ct != "factor") {
+                output$plotOutput = renderPlot({
+                    isolate(plotUnivar(values$select, input$outlierUni, log = input$outLogUni, type = input$outlierTypeUni))
+                })
+                
+                values$outliers = univarOutliers(values$select, input$outlierUni, input$outLogUni, input$outlierTypeUni)$outliers
+                
+            } else {
+                print("Outlier var must be numeric")
+            }
             
-            values$outliers = univarOutliers(values$select, input$outlierUni, input$outlierTypeUni)$outliers
         } else if (input$outlierTabset == "Bivariate" && input$outlierBi1 != "" && input$outlierBi2 != "") {
-            output$plotOutput = renderPlot({
-                isolate(plotBivar(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi))
-            })
+            ct1 = info()[[input$outlierBi1]]$type
+            ct2 = info()[[input$outlierBi2]]$type
             
-            values$outliers = bivarOutliers(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi)$outliers
+            if (ct1 != "factor" && ct2 != "factor") {
+                
+                output$plotOutput = renderPlot({
+                    isolate(plotBivar(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi))
+                })
+                
+                values$outliers = bivarOutliers(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi)$outliers
+                
+            } else {
+                print("Outlier var must be numeric")
+            }
         } else {
             
         }
-        
-        print(nrow(values$outliers))
         
     })
     
     observeEvent(input$outlierRemove, {
         if (input$outlierTabset == "Univariate" && input$outlierUni != "") {
-            outliers = univarOutliers(values$select, input$outlierUni, input$outlierTypeUni)$outliers
-            print(head(outliers,100))
-            values$select = rmOutliers(values$select, outliers)
+            ct = info()[[input$outlierUni]]$type
+            if (ct != "factor") {
+                
+                outliers = univarOutliers(values$select, input$outlierUni, log = input$outLogUni, input$outlierTypeUni)$outliers
+                values$select = rmOutliers(values$select, outliers)
+                
+                output$plotOutput = renderPlot({
+                    isolate(plotUnivar(values$select, input$outlierUni, type = input$outlierTypeUni))
+                })
+                
+                
+            } else {
+                print("Outlier var must be numeric")
+            }
             
-            output$plotOutput = renderPlot({
-                isolate(plotUnivar(values$select, input$outlierUni, type = input$outlierTypeUni))
-            })
         } else if (input$outlierTabset == "Bivariate" && input$outlierBi1 != "" && input$outlierBi2 != "") {
-            out = bivarOutliers(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi)
-            values$select = rmOutliers(values$select, out$outliers)
+            ct1 = info()[[input$outlierBi1]]$type
+            ct2 = info()[[input$outlierBi2]]$type
             
-            output$plotOutput = renderPlot({
-                isolate(plotBivar(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi))
-            })
+            if (ct1 != "factor" && ct2 != "factor") {
+                out = bivarOutliers(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi)
+                values$select = rmOutliers(values$select, out$outliers)
+                
+                output$plotOutput = renderPlot({
+                    isolate(plotBivar(values$select, input$outlierBi1, input$outlierBi2, type = input$outlierTypeBi))
+                })
+                
+            } else {
+                print("Outlier var must be numeric")
+            }
             
         } else {
             
         }
         
-        print(length(values$outliers))
         
     })
     

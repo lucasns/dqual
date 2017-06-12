@@ -18,8 +18,9 @@ library(dplyr)
 
 
 outlierBoxplot = function(data, col, rm_na = TRUE) {
-    bp = boxplot(data[[col]])
+    bp = boxplot(data, xlab=col)
     out = data.frame(bp$out)
+    
     names(out) = col
 
     list(plot = bp, outliers = out)
@@ -28,8 +29,8 @@ outlierBoxplot = function(data, col, rm_na = TRUE) {
 }
 
 
-outlierBagplot = function(data, col1, col2) {
-    bp = bagplot(data[[col1]], data[[col2]])
+outlierBagplot = function(data1, data2, col1, col2) {
+    bp = bagplot(data1, data2)
     out = data.frame(bp$pxy.outlier)
     names(out) = c(col1, col2)
     
@@ -38,8 +39,8 @@ outlierBagplot = function(data, col1, col2) {
 }
 
 
-outlierBvBoxplot = function(data, col1, col2) {
-    bp = bv.boxplot(data[[col1]], data[[col2]])
+outlierBvBoxplot = function(data1, data2, col1, col2) {
+    bp = bv.boxplot(data1, data2)
     out = bp$out
     names(out) = c(col1, col2)
     list(plot = bp, outliers = out)
@@ -60,7 +61,7 @@ bivarOutTypes = list(
 )
 
 
-univarOutliers = function(input, var, type = "boxplot", rmNA = TRUE) {
+univarOutliers = function(input, var, log = FALSE, type = "boxplot", rmNA = TRUE) {
     if (is.null(input)) {
         return()
     }
@@ -68,11 +69,16 @@ univarOutliers = function(input, var, type = "boxplot", rmNA = TRUE) {
     if (rmNA == TRUE) {
         input = input[!(is.na(input[[var]])),]
     }
+    
 
-    univarOutTypes[[type]](input, var)
+    x = input[[var]]
+    print(log)
+    if (log) x = log(x)
+
+    univarOutTypes[[type]](x, var)
 }
 
-bivarOutliers = function(input, var1, var2, type = "bvboxplot", rmNA = TRUE) {
+bivarOutliers = function(input, var1, var2, log = FALSE, type = "bvboxplot", rmNA = TRUE) {
     if (is.null(input)) {
         return()
     }
@@ -81,11 +87,14 @@ bivarOutliers = function(input, var1, var2, type = "bvboxplot", rmNA = TRUE) {
         input = input[!(is.na(input[[var1]])) & !(is.na(input[[var2]])),]
     }
     
-    bivarOutTypes[[type]](input, var1, var2)
+    data1 = input[[var1]]
+    data2 = input[[var2]]
+    bivarOutTypes[[type]](data1, data2, var1, var2)
 }
 
 
 rmOutliers = function(data, outliers) {
+    
     anti_join(data, outliers, by=names(outliers))
 }
 

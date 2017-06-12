@@ -1,5 +1,5 @@
 
-plotUnivar = function(data, col, type="histogram", rmNA = TRUE) {
+plotUnivar = function(data, col, log = FALSE, type="histogram", rmNA = TRUE) {
     
     if (is.null(data)) {
         return()
@@ -10,18 +10,23 @@ plotUnivar = function(data, col, type="histogram", rmNA = TRUE) {
     }
     
     x = data[[col]]
+    if (log) x = log(x)
+
     plotFunc = switch(type,
                       plot = plot,
                       histogram = hist,
-                      boxplot = boxplot
+                      boxplot = function(x, xlab) {
+                          boxplot(x, xlab=xlab, outcol='red')
+                      }
     )
     
-    return(list(plot = plotFunc(x), n = 1))
+    
+    plotFunc(x, xlab=col)
     
 }
 
 
-plotBivar = function(data, var1, var2, type="bvboxplot", rmNA = TRUE) {
+plotBivar = function(data, var1, var2, log = FALSE, type="bvboxplot", rmNA = TRUE) {
     if (is.null(data)) {
         return()
     }
@@ -32,13 +37,28 @@ plotBivar = function(data, var1, var2, type="bvboxplot", rmNA = TRUE) {
     
     x = data[[var1]]
     y = data[[var2]]
+    
+    aux = data.frame(x,y)
+    print(head(aux, 10))
+    
+    
+    if (log) {
+        aux = data.frame(sapply(aux, log))
+        aux = aux[complete.cases(aux) && !duplicated(aux$x) && !duplicated(aux$y), ]
+        
+        x = aux[['x']]
+        y = aux[['y']]
+
+
+    }
+    
     plotFunc = switch(type,
-                      bvboxplot = function(x, y) {
-                          bv.boxplot(x, y, bg = 'blue', bg.out = 'red')
+                      bvboxplot = function(x, y, xlab, ylab) {
+                          bv.boxplot(x, y, bg = 'blue', bg.out = 'red', xlab = xlab, ylab = ylab)
                       },
                       plot = plot
     )
     
-    plotFunc(x, y)
+    plotFunc(x, y, var1, var2)
     
 }
