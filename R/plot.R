@@ -1,64 +1,90 @@
+plot_univar = function(dataset, var, type="histogram", modifier = NULL, rm_na = TRUE) {
+    if (is.null(dataset)) return()
 
-plotUnivar = function(data, col, log = FALSE, type="histogram", rmNA = TRUE) {
-    
-    if (is.null(data)) {
-        return()
+    if (rm_na == TRUE) {
+        dataset = dataset[!(is.na(dataset[[var]])),]
     }
-    
-    if (rmNA == TRUE) {
-        data = data[!(is.na(data[[col]])),]
-    }
-    
-    x = data[[col]]
-    if (log) x = log(x)
 
-    plotFunc = switch(type,
-                      plot = plot,
-                      histogram = hist,
-                      boxplot = function(x, xlab) {
-                          boxplot(x, xlab=xlab, outcol='red')
-                      }
+    x = dataset[[var]]
+
+    if (!is.null(modifier)) {
+        x = apply_modifier(x, modifier)
+        var_name = paste(modifier, paste0("(", var, ")"))
+    } else {
+        var_name = var
+    }
+
+    plot_func = switch(type,
+                       plot = function(x, var_name) {
+                           plot(x, main = NULL, ylab = var_name)
+                       },
+
+                       histogram = function(x, var_name) {
+                           hist(x, main = NULL, xlab = var_name)
+                       },
+
+                       boxplot = function(x, var_name) {
+                           boxplot(x, main = NULL, xlab = var_name, ylab = "Value")
+                       }
     )
-    
-    
-    plotFunc(x, xlab=col)
-    
+
+    tryCatch({
+        plot_func(x, var_name)
+        return(TRUE)
+    }, error = function(cond) {
+        print(cond)
+        return(FALSE)
+    })
 }
 
 
-plotBivar = function(data, var1, var2, log = FALSE, type="bvboxplot", rmNA = TRUE) {
-    if (is.null(data)) {
-        return()
-    }
-    
-    if (rmNA) {
-        data = data[!(is.na(data[[var1]]) | is.na(data[[var2]])),]
-    }
-    
-    x = data[[var1]]
-    y = data[[var2]]
-    
-    aux = data.frame(x,y)
-    print(head(aux, 10))
-    
-    
-    if (log) {
-        aux = data.frame(sapply(aux, log))
-        aux = aux[complete.cases(aux) && !duplicated(aux$x) && !duplicated(aux$y), ]
-        
-        x = aux[['x']]
-        y = aux[['y']]
+plot_bivar = function(dataset, var1, var2, type="bvboxplot", modifier = NULL, rm_na = TRUE) {
+    if (is.null(dataset)) return()
 
-
+    if (rm_na) {
+        dataset = dataset[!(is.na(dataset[[var1]]) | is.na(dataset[[var2]])),]
     }
-    
-    plotFunc = switch(type,
-                      bvboxplot = function(x, y, xlab, ylab) {
-                          bv.boxplot(x, y, bg = 'blue', bg.out = 'red', xlab = xlab, ylab = ylab)
-                      },
-                      plot = plot
+
+    x = dataset[[var1]]
+    y = dataset[[var2]]
+
+    if (!is.null(modifier)) {
+        x = apply_modifier(x, modifier)
+        y = apply_modifier(y, modifier)
+
+        aux_df = data.frame(x,y)
+        aux_df = aux_df[is.finite(aux_df$x) & is.finite(aux_df$y), ]
+
+        x = aux_df[['x']]
+        y = aux_df[['y']]
+
+        xl = paste(modifier, paste0("(", var1, ")"))
+        yl = paste(modifier, paste0("(", var2, ")"))
+
+    } else {
+        xl = var1
+        yl = var2
+    }
+
+    plot_func = switch(type,
+                       bvboxplot = function(x, y, xlab, ylab) {
+                           asbio::bv.boxplot(x, y, bg = 'blue', bg.out = 'red', xlab = xlab, ylab = ylab)
+                       },
+
+                       bagplot = function(x, y, xlab, ylab) {
+                           aplpack::bagplot(x, y, xlab = xlab, ylab = ylab)
+                       },
+
+                       plot = plot
     )
-    
-    plotFunc(x, y, var1, var2)
-    
+
+    tryCatch({
+        plot_func(x, y, xlab = xl, ylab = yl)
+        return(TRUE)
+    }, error = function(cond) {
+        print(cond)
+        return(FALSE)
+    })
+
+
 }

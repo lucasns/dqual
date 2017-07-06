@@ -28,12 +28,12 @@ getInfo = function(data) {
         col = data[[t]]
         if (is.numeric(col)) {
             ret[[t]] = list(type = "numeric", values = c(min(col, na.rm = TRUE), max(col, na.rm = TRUE)))
-            
+
         } else if(is.factor(col)) {
             ret[[t]] = list(type = "factor", values = levels(col))
         }
     }
-    
+
     ret
 
 }

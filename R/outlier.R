@@ -1,103 +1,153 @@
-#input <- read.csv("test.csv", colClasses = c(NA, NA, NA, NA, NA, NA, NA, NA, 
-#                                                              "NULL", "NULL", "NULL", "NULL", NA))
-
-#input = input[!(input$qts > 20 & !is.na(input$qts)),]
-#input = input[!(input$preco > 1000000 & !is.na(input$preco)),]
-#input = input[!(is.na(input$area) | is.na(input$qts) | is.na(input$vagas)),]
-
-
-
-#univar_camp = "qts"
-
-
-
-
 library(aplpack)
 library(asbio)
 library(dplyr)
 
 
-outlierBoxplot = function(data, col, rm_na = TRUE) {
-    bp = boxplot(data, xlab=col)
-    out = data.frame(bp$out)
-    
-    names(out) = col
-
-    list(plot = bp, outliers = out)
-
-    #ifelse(data[[col]] %in% bp, TRUE, FALSE)
+outlier_sd = function(x, n = 2) {
+    x_mean = mean(x)
+    x_sd = sd(x)
+    lower = x_mean - n * x_sd
+    upper = x_mean + n * x_sd
+    out = x[x < lower | x > upper]
+    return(out)
 }
 
 
-outlierBagplot = function(data1, data2, col1, col2) {
-    bp = bagplot(data1, data2)
-    out = data.frame(bp$pxy.outlier)
-    names(out) = c(col1, col2)
-    
-    list(plot = bp, outliers = out)
-    #paste(input[[col1]], input[[col2]], sep=":") %in% paste(bp$x, bp$y, sep=":")
+outlier_mad = function(x, n = 2) {
+    x_median = median(x)
+    x_made = mad(x)
+    lower = x_median - n * x_made
+    upper =  x_median + n * x_made
+    out = x[x < lower | x > upper]
+    return(out)
 }
 
 
-outlierBvBoxplot = function(data1, data2, col1, col2) {
-    bp = bv.boxplot(data1, data2)
+outlier_boxplot = function(x, rm_na = TRUE) {
+    bp = boxplot(x)
     out = bp$out
-    names(out) = c(col1, col2)
-    list(plot = bp, outliers = out)
-    #paste(input[[col1]], input[[col2]], sep=":") %in% paste(bp$X, bp$Y, sep=":")
-
+    return(out)
 }
 
 
-univarOutTypes = list(
-    boxplot = outlierBoxplot
+outlier_bagplot = function(x, y) {
+    bp = aplpack::bagplot(x, y)
+    out = data.frame(bp$pxy.outlier)
+    return(out)
+}
+
+
+outlier_bv_boxplot = function(x, y) {
+    bp = asbio::bv.boxplot(x, y)
+    out = bp$out
+    return(out)
+}
+
+
+univar_func = list(
+    sd2 = outlier_sd,
+    made2 = outlier_mad,
+    boxplot = outlier_boxplot
 )
 
 
-bivarOutTypes = list(
-    bagplot = outlierBvBoxplot,
-    bvboxplot = outlierBvBoxplot
-    
+bivar_func = list(
+    bagplot = outlier_bagplot,
+    bvboxplot = outlier_bv_boxplot
 )
 
 
-univarOutliers = function(input, var, log = FALSE, type = "boxplot", rmNA = TRUE) {
-    if (is.null(input)) {
-        return()
-    }
-    
-    if (rmNA == TRUE) {
-        input = input[!(is.na(input[[var]])),]
-    }
-    
+univariate_outliers = function(dataset, var, type = "boxplot", modifier = NULL, rm_na = TRUE) {
+    if (is.null(dataset)) return()
 
-    x = input[[var]]
-    print(log)
-    if (log) x = log(x)
-
-    univarOutTypes[[type]](x, var)
-}
-
-bivarOutliers = function(input, var1, var2, log = FALSE, type = "bvboxplot", rmNA = TRUE) {
-    if (is.null(input)) {
-        return()
+    if (rm_na == TRUE) {
+        dataset = dataset[!(is.na(dataset[[var]])),]
     }
-    
-    if (rmNA == TRUE) {
-        input = input[!(is.na(input[[var1]])) & !(is.na(input[[var2]])),]
+
+    x = dataset[[var]]
+
+    if (!is.null(modifier)) {
+        x = apply_modifier(x, modifier)
     }
-    
-    data1 = input[[var1]]
-    data2 = input[[var2]]
-    bivarOutTypes[[type]](data1, data2, var1, var2)
+
+    tryCatch({
+        out = univar_func[[type]](x)
+        out = data.frame(out)
+        names(out) = var
+        info = paste(nrow(out), "outliers detected")
+    }, error = function(cond) {
+        out = NULL
+        info = "Error"
+        print(cond)
+    })
+
+    return(list(outliers = out, info = info))
 }
 
 
-rmOutliers = function(data, outliers) {
-    
-    anti_join(data, outliers, by=names(outliers))
+bivariate_outliers = function(dataset, var1, var2, type = "bvboxplot", modifier = NULL, rm_na = TRUE) {
+    if (is.null(dataset)) return()
+
+    if (rm_na == TRUE) {
+        dataset = dataset[!(is.na(dataset[[var1]])) & !(is.na(dataset[[var2]])),]
+    }
+
+    x = dataset[[var1]]
+    y = dataset[[var2]]
+
+    if (!is.null(modifier)) {
+        x = apply_modifier(x, modifier)
+        y = apply_modifier(y, modifier)
+
+        aux_df = data.frame(x,y)
+        aux_df = aux_df[is.finite(aux_df$x) & is.finite(aux_df$y), ]
+
+        x = aux_df[['x']]
+        y = aux_df[['y']]
+    }
+
+    out = NULL
+    info = "Error"
+
+    tryCatch({
+        out = bivar_func[[type]](x, y)
+        names(out) = c(var1, var2)
+        info = paste(nrow(out), "outliers detected")
+    }, error = function(cond) {
+        print(cond)
+    })
+
+
+    print(info)
+
+    return(list(outliers = out, info = info))
 }
 
-#a = outlierBoxplot(input, 'qts')
-#b = outlierBvBoxplot(input, 'qts', 'lat')
 
+remove_outliers = function(dataset, var, type, modifier = NULL) {
+    dataset = cbind("idx_aux" = as.numeric(rownames(dataset)), dataset)
+
+    if (length(var) == 1) { # Univar
+        outliers = univariate_outliers(dataset, var, type, modifier)$outliers
+
+    } else if (length(var) == 2) { # Bivar
+        outliers = bivariate_outliers(dataset, var[1], var[2], type, modifier)$outliers
+    }
+
+    if (!is.null(modifier)) {
+        dataset[var] = data.frame(lapply(dataset[var], function(x) apply_modifier(x, modifier)))
+    }
+
+    if (!is.null(outliers)) {
+        clean_data = dplyr::anti_join(dataset, outliers, by = names(outliers))
+        clean_data = dplyr::arrange(clean_data, idx_aux)
+        rownames(clean_data) = clean_data$idx_aux
+
+        info = paste(nrow(outliers), "rows with outliers removed")
+    } else {
+        info = "Error"
+        clean_data = NULL
+    }
+
+    return(list(data = clean_data[, !(colnames(clean_data) == "idx_aux")], info = info))
+}
